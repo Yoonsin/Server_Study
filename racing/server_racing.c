@@ -7,11 +7,18 @@
 #include<netinet/in.h>
 #include<pthread.h>
 #include<time.h>
- 
+#include"queue.h"
+
 #define BUF_SIZE 100
 #define MAX_CLNT 100
 #define MAX_IP 30
- 
+#define ROW 6 //track vertical
+#define COL 25 //track horizon
+
+int itemX = COL/2;
+int itemY = ROW/2;
+int itemFlag;
+
 void * handle_clnt(void *arg);
 void send_msg(int clnt_sock,char *msg, int len);
 void error_handling(char *msg);
@@ -24,7 +31,7 @@ void menu(char port[]);
 int clnt_cnt=0;
 int clnt_socks[MAX_CLNT];
 pthread_mutex_t mutx;
- 
+
 int main(int argc, char *argv[])
 {
     int serv_sock, clnt_sock;
@@ -83,11 +90,25 @@ void *handle_clnt(void *arg)
 {
     int clnt_sock=*((int*)arg);
     int str_len=0, i;
-    char msg[sizeof(int)*2];
+    char msg[sizeof(packet)];
  
-    while((str_len=read(clnt_sock, msg, sizeof(msg)))!=0)
-        send_msg(clnt_sock,msg, str_len);
- 
+    while((str_len=read(clnt_sock, msg, sizeof(msg)))!=0){
+        
+	 msg[str_len] = '\0';
+
+	 if(!itemFlag){
+	   packet* recvPacket = (packet*)msg;
+	   packet temp = *recvPacket;
+           if(temp.x==itemX&&temp.y==itemY){
+            printf("[%s] get Item!\n",temp.name);
+	    itemFlag = 1;
+	   }
+	 }
+
+         send_msg(clnt_sock,msg, str_len);
+
+    }
+    
     // remove disconnected client
     pthread_mutex_lock(&mutx);
     for (i=0; i<clnt_cnt; i++)

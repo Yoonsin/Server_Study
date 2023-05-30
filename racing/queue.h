@@ -4,6 +4,7 @@
 //packet;
 typedef struct packet{	
 	int x,y;
+	char name[10];
 	//추후 데이터 추가예정...
 }packet;
 

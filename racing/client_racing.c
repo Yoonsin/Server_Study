@@ -10,7 +10,7 @@
 #include "keyboard.h"
 
 #define BUF_SIZE 100
-#define NORMAL_SIZE 20
+#define NORMAL_SIZE 10
 
 #define ROW 6 //track vertical
 #define COL 25 //track horizon
@@ -29,6 +29,7 @@ int dx[2] = {0,1};
 int dy[3] = {0,1,-1};
 
 int emeX = 1,emeY = 1; //enemy cart
+char emeName[NORMAL_SIZE];
 
 int itemX = COL/2, itemY = ROW/2; //item
 
@@ -53,7 +54,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    sprintf(name, "[%s]", argv[3]);
+    sprintf(name, "%s", argv[3]);
     sprintf(clnt_ip, "%s", argv[1]);
     sprintf(serv_port, "%s", argv[2]);
     sock=socket(PF_INET, SOCK_STREAM, 0);
@@ -79,7 +80,10 @@ int main(int argc, char *argv[])
 
         inputCart(); //change cartX, cartY
 
-	packet my_cart_data = {cartX,cartY};
+	packet my_cart_data;
+	my_cart_data.x = cartX;
+	my_cart_data.y = cartY;
+	strcpy(my_cart_data.name,name);
 
 	pthread_mutex_lock(&a_lock);
 	enqueue(&send_queue,my_cart_data);
@@ -90,9 +94,10 @@ int main(int argc, char *argv[])
 	   dequeue(&recv_queue);
 	   emeX = eme_cart_data.x;
 	   emeY = eme_cart_data.y;
-	   
-	   printf("my Cart : %d %d\n",cartX,cartY);
-	   printf("eme Cart : %d %d\n",emeX,emeY);
+	   strcpy(emeName,eme_cart_data.name);
+
+	   printf("my(%s) Cart : %d %d\n",name,cartX,cartY);
+	   printf("eme(%s) Cart : %d %d\n",emeName,emeX,emeY);
 	}
         pthread_mutex_unlock(&a_lock);
         update(emeX,emeY);	
@@ -141,7 +146,7 @@ void inputCart()
      if(cartY<0) cartY = 0;
      if(cartY>=ROW) cartY = ROW -1;
 
-     //트랙 벗어나는 거 방지
+     //트랙 벗어나는 거 방지!
      
    }
 }
@@ -154,15 +159,15 @@ void update(int emeX, int emeY)
 		
 				if(cartX==j && cartY==i)
 				{
-					printf("■");
+					printf("■ ");
 				}else if(emeX==j && emeY==i)
 				{
-					printf("●");
+					printf("● ");
 				}else if(itemX ==j && itemY==i){
-					printf("☆");
+					printf("☆ ");
 				}
 				else{				
-				   printf("□");
+				   printf("□ ");
 				}
 				
 			}
@@ -175,7 +180,6 @@ void update(int emeX, int emeY)
 void* send_msg(void* arg)
 {
     int sock = *((int*)arg);
-    char coord[sizeof(int)*2]; 
 
     while(1){
 	pthread_mutex_lock(&a_lock);
@@ -183,10 +187,7 @@ void* send_msg(void* arg)
         packet temp = seek(&send_queue);
 	dequeue(&send_queue);
 
-	memcpy(coord, &(temp.x), sizeof(int));
-	memcpy(coord + sizeof(int), &(temp.y), sizeof(int));
-
-        write(sock, coord, sizeof(coord));	
+        write(sock, (char*)&temp, sizeof(packet));	
         }
 
 
@@ -199,16 +200,17 @@ void* send_msg(void* arg)
 void* recv_msg(void* arg)
 {
     int sock = *((int*)arg);
-    char coord[sizeof(int)*2];
+    char recvBuf[sizeof(packet)];
     int str_len;
 
     while(1){
-       if(str_len = read(sock, coord, sizeof(int)*2)!=-1)
+       if(str_len = read(sock, recvBuf, sizeof(packet))!=-1)
        {
          packet temp;
-       
-         memcpy(&(temp.x), coord, sizeof(int));
-         memcpy(&(temp.y), coord+sizeof(int),sizeof(int));
+         recvBuf[str_len] = '\0'; //cut bufferSize (prevent trash value)
+         
+         packet* recvPacket = (packet*)recvBuf;
+	 temp = *recvPacket;
 
          pthread_mutex_lock(&a_lock);
          enqueue(&recv_queue,temp);
