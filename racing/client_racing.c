@@ -9,7 +9,7 @@
 #include "queue.h"
 #include "keyboard.h"
 
-#define BUF_SIZE 100
+#define BUF_SIZE 1024
 #define NORMAL_SIZE 10
 
 #define ROW 6 //track vertical
@@ -96,8 +96,8 @@ int main(int argc, char *argv[])
 	   emeY = eme_cart_data.y;
 	   strcpy(emeName,eme_cart_data.name);
 
-	   printf("my(%s) Cart : %d %d\n",name,cartX,cartY);
-	   printf("eme(%s) Cart : %d %d\n",emeName,emeX,emeY);
+	   //printf("my(%s) Cart : %d %d\n",name,cartX,cartY);
+	   //printf("eme(%s) Cart : %d %d\n",emeName,emeX,emeY);
 	}
         pthread_mutex_unlock(&a_lock);
         update(emeX,emeY);	
@@ -200,22 +200,36 @@ void* send_msg(void* arg)
 void* recv_msg(void* arg)
 {
     int sock = *((int*)arg);
-    char recvBuf[sizeof(packet)];
+    char recvBuf[BUF_SIZE];
     int str_len;
 
     while(1){
-       if(str_len = read(sock, recvBuf, sizeof(packet))!=-1)
+       if(str_len = read(sock, recvBuf, sizeof(recvBuf))!=-1)
        {
-         packet temp;
          recvBuf[str_len] = '\0'; //cut bufferSize (prevent trash value)
-         
-         packet* recvPacket = (packet*)recvBuf;
-	 temp = *recvPacket;
+         int copySize = sizeof(packet);
+	 int remainByte = str_len;
+	 int srcPos = 0;
 
-         pthread_mutex_lock(&a_lock);
-         enqueue(&recv_queue,temp);
-         pthread_mutex_unlock(&a_lock);
-       }
+	 while(remainByte > 0){
+	   char cutMsg[100];
+	   memcpy(cutMsg, recvBuf+srcPos, copySize);
+	   cutMsg[copySize] = '\0';
+
+           packet temp;
+	   packet* recvPacket = (packet*)cutMsg;
+	   temp = *recvPacket; 
+	   
+	   pthread_mutex_lock(&a_lock);
+           enqueue(&recv_queue,temp);
+           pthread_mutex_unlock(&a_lock);
+ 
+ 
+	   srcPos += copySize;
+	   remainByte -= copySize;
+             
+	 }
+      }
     }
 
     return NULL;

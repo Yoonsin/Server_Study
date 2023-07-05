@@ -7,9 +7,10 @@
 #include<netinet/in.h>
 #include<pthread.h>
 #include<time.h>
+#include<string.h>
 #include"queue.h"
 
-#define BUF_SIZE 100
+#define BUF_SIZE 1024
 #define MAX_CLNT 100
 #define MAX_IP 30
 #define ROW 6 //track vertical
@@ -90,12 +91,14 @@ void *handle_clnt(void *arg)
 {
     int clnt_sock=*((int*)arg);
     int str_len=0, i;
-    char msg[sizeof(packet)];
+    char msg[BUF_SIZE];
  
     while((str_len=read(clnt_sock, msg, sizeof(msg)))!=0){
         
 	 msg[str_len] = '\0';
+	 printf("%d\n",str_len);
 
+	 /*
 	 if(!itemFlag){
 	   packet* recvPacket = (packet*)msg;
 	   packet temp = *recvPacket;
@@ -103,7 +106,7 @@ void *handle_clnt(void *arg)
             printf("[%s] get Item!\n",temp.name);
 	    itemFlag = 1;
 	   }
-	 }
+	 }*/
 
          send_msg(clnt_sock,msg, str_len);
 
@@ -129,14 +132,34 @@ void *handle_clnt(void *arg)
 void send_msg(int clnt_sock,char* msg, int len)
 {
     int i;
+    int copySize = sizeof(packet);
+    packet* recvPacket = (packet*)msg;
+    packet temp = *recvPacket;
+    
     pthread_mutex_lock(&mutx);
     for (i=0; i<clnt_cnt; i++){
+       int remainByte = len;     
+       int srcPos = 0;
        if(clnt_socks[i] != clnt_sock){ 
           //자신을 제외한 모두에게 브로드 캐스트한다(자신은 이미 로컬에서 자리 옮김) 
-          write(clnt_socks[i], msg, len); 
+          while(remainByte > 0){
+             char cutMsg[100];
+	     memcpy(cutMsg, msg+srcPos, copySize);
+	     cutMsg[copySize] = '\0';
+
+	     write(clnt_socks[i], cutMsg, copySize);
+	     
+	     srcPos += copySize;
+	     remainByte -= copySize;
+          }
        }
     }
     pthread_mutex_unlock(&mutx);
+
+     if(strncmp(temp.name,"link",4)==0){
+	    //젤다쪽이 느려짐
+            usleep(40000); //뮤텍스 때문에 젤다쪽은 쓰지도 못하는듯...그럼 뮤텍스 바깥으로 옮겨보자
+     }
 }
  
 void error_handling(char *msg)
