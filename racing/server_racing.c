@@ -93,10 +93,10 @@ void *handle_clnt(void *arg)
     int str_len=0, i;
     char msg[BUF_SIZE];
  
-    while((str_len=read(clnt_sock, msg, sizeof(msg)))!=0){
+    while((str_len=read(clnt_sock, msg, sizeof(msg)))>0){
         
 	 msg[str_len] = '\0';
-	 printf("%d\n",str_len);
+	 //printf("%d\n",str_len);
 
 	 /*
 	 if(!itemFlag){
@@ -143,6 +143,7 @@ void send_msg(int clnt_sock,char* msg, int len)
        if(clnt_socks[i] != clnt_sock){ 
           //자신을 제외한 모두에게 브로드 캐스트한다(자신은 이미 로컬에서 자리 옮김) 
           while(remainByte > 0){
+	     printf("%d %d\n", len,remainByte);
              char cutMsg[100];
 	     memcpy(cutMsg, msg+srcPos, copySize);
 	     cutMsg[copySize] = '\0';
@@ -158,7 +159,7 @@ void send_msg(int clnt_sock,char* msg, int len)
 
      if(strncmp(temp.name,"link",4)==0){
 	    //젤다쪽이 느려짐
-            usleep(40000); //뮤텍스 때문에 젤다쪽은 쓰지도 못하는듯...그럼 뮤텍스 바깥으로 옮겨보자
+	     usleep(300000); //뮤텍스 때문에 젤다쪽은 쓰지도 못하는듯...그럼 뮤텍스 바깥으로 옮겨보자
      }
 }
  

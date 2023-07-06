@@ -87,8 +87,9 @@ int main(int argc, char *argv[])
 
 	pthread_mutex_lock(&a_lock);
 	enqueue(&send_queue,my_cart_data);
+        pthread_mutex_unlock(&a_lock);
 
-	
+	pthread_mutex_unlock(&a_lock);
 	if(!is_empty(&recv_queue)){
 	   packet eme_cart_data = seek(&recv_queue);
 	   dequeue(&recv_queue);
@@ -96,10 +97,12 @@ int main(int argc, char *argv[])
 	   emeY = eme_cart_data.y;
 	   strcpy(emeName,eme_cart_data.name);
 
-	   //printf("my(%s) Cart : %d %d\n",name,cartX,cartY);
-	   //printf("eme(%s) Cart : %d %d\n",emeName,emeX,emeY);
+	   printf("my(%s) Cart : %d %d\n",name,cartX,cartY);
+	   printf("eme(%s) Cart : %d %d\n",emeName,emeX,emeY);
 	}
-        pthread_mutex_unlock(&a_lock);
+        pthread_mutex_unlock(&a_lock); 
+	//아마 여러개 수신큐에서 read할 때 뮤텍스 때문에 못 읽으니까 계속 기다리느라 끊겨서 출력되는거 아닐까
+
         update(emeX,emeY);	
 
 
@@ -204,7 +207,7 @@ void* recv_msg(void* arg)
     int str_len;
 
     while(1){
-       if(str_len = read(sock, recvBuf, sizeof(recvBuf))!=-1)
+       if((str_len = read(sock, recvBuf, sizeof(recvBuf)))>0)
        {
          recvBuf[str_len] = '\0'; //cut bufferSize (prevent trash value)
          int copySize = sizeof(packet);
@@ -212,14 +215,17 @@ void* recv_msg(void* arg)
 	 int srcPos = 0;
 
 	 while(remainByte > 0){
-	   char cutMsg[100];
+	   //printf("%d %d\n",str_len, remainByte); 
+           char cutMsg[100];
 	   memcpy(cutMsg, recvBuf+srcPos, copySize);
 	   cutMsg[copySize] = '\0';
 
            packet temp;
 	   packet* recvPacket = (packet*)cutMsg;
 	   temp = *recvPacket; 
+	
 	   
+
 	   pthread_mutex_lock(&a_lock);
            enqueue(&recv_queue,temp);
            pthread_mutex_unlock(&a_lock);
