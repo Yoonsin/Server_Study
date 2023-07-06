@@ -10,7 +10,7 @@
 #include<string.h>
 #include"queue.h"
 
-#define BUF_SIZE 1024
+#define BUF_SIZE sizeof(packet)*50
 #define MAX_CLNT 100
 #define MAX_IP 30
 #define ROW 6 //track vertical
@@ -144,7 +144,7 @@ void send_msg(int clnt_sock,char* msg, int len)
           //자신을 제외한 모두에게 브로드 캐스트한다(자신은 이미 로컬에서 자리 옮김) 
           while(remainByte > 0){
 	     printf("%d %d\n", len,remainByte);
-             char cutMsg[100];
+             char cutMsg[sizeof(packet)*5];
 	     memcpy(cutMsg, msg+srcPos, copySize);
 	     cutMsg[copySize] = '\0';
 
@@ -159,7 +159,7 @@ void send_msg(int clnt_sock,char* msg, int len)
 
      if(strncmp(temp.name,"link",4)==0){
 	    //젤다쪽이 느려짐
-	     usleep(300000); //뮤텍스 때문에 젤다쪽은 쓰지도 못하는듯...그럼 뮤텍스 바깥으로 옮겨보자
+	     usleep(3000000); //뮤텍스 때문에 젤다쪽은 쓰지도 못하는듯...그럼 뮤텍스 바깥으로 옮겨보자
      }
 }
  

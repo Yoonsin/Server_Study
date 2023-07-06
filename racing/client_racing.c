@@ -80,15 +80,6 @@ int main(int argc, char *argv[])
 
         inputCart(); //change cartX, cartY
 
-	packet my_cart_data;
-	my_cart_data.x = cartX;
-	my_cart_data.y = cartY;
-	strcpy(my_cart_data.name,name);
-
-	pthread_mutex_lock(&a_lock);
-	enqueue(&send_queue,my_cart_data);
-        pthread_mutex_unlock(&a_lock);
-
 	pthread_mutex_unlock(&a_lock);
 	if(!is_empty(&recv_queue)){
 	   packet eme_cart_data = seek(&recv_queue);
@@ -151,6 +142,15 @@ void inputCart()
 
      //트랙 벗어나는 거 방지!
      
+     //움직임이 있을 때만 패킷 보내기
+     packet my_cart_data;
+     my_cart_data.x = cartX;
+     my_cart_data.y = cartY;
+     strcpy(my_cart_data.name,name);
+
+     pthread_mutex_lock(&a_lock);
+     enqueue(&send_queue,my_cart_data);
+     pthread_mutex_unlock(&a_lock);
    }
 }
 
