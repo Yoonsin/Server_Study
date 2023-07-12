@@ -159,7 +159,7 @@ void send_msg(int clnt_sock,char* msg, int len)
 
      if(strncmp(temp.name,"link",4)==0){
 	    //젤다쪽이 느려짐
-	     usleep(3000000); //뮤텍스 때문에 젤다쪽은 쓰지도 못하는듯...그럼 뮤텍스 바깥으로 옮겨보자
+	    //usleep(300000); //링크->젤다 시 임의로 레이턴시 300ms
      }
 }
  

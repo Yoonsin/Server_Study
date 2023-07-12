@@ -14,7 +14,20 @@
 
 #define ROW 6 //track vertical
 #define COL 25 //track horizon
+#define ENEMY_NUM 7
 
+//8-directions code
+#define N 119
+#define E 100
+#define S 115
+#define W 97
+#define NE 219
+#define SE 215
+#define SW 212
+#define NW 216
+
+//quit code
+#define QUIT 113
 
 void update(); //fuc
 void inputCart();
@@ -28,8 +41,14 @@ int dirX,dirY;
 int dx[2] = {0,1};
 int dy[3] = {0,1,-1};
 
+typedef struct enemy{
+	int x,y;
+	char name[NORMAL_SIZE];
+}enemy;
+enemy eme[ENEMY_NUM];
+int emeCnt=0;
 int emeX = 1,emeY = 1; //enemy cart
-char emeName[NORMAL_SIZE];
+char emeName[NORMAL_SIZE] = "NONE";
 
 int itemX = COL/2, itemY = ROW/2; //item
 
@@ -38,7 +57,10 @@ char serv_port[NORMAL_SIZE];
 char name[NORMAL_SIZE]="[DEFALT]";
 queue recv_queue, send_queue;
 
+//수신 송신 큐에 대한 뮤텍스
 pthread_mutex_t a_lock = PTHREAD_MUTEX_INITIALIZER;
+//에너미에 대한 뮤텍스
+pthread_mutex_t b_lock = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char *argv[])
 {
@@ -52,6 +74,10 @@ int main(int argc, char *argv[])
     {
         printf(" Usage : %s <ip> <port> <name>\n", argv[0]);
         exit(1);
+    }
+
+    for(int i=0;i<ENEMY_NUM;i++){ 
+	sprintf(eme[i].name,"%s","NONE");
     }
 
     sprintf(name, "%s", argv[3]);
@@ -79,22 +105,32 @@ int main(int argc, char *argv[])
     while(1){
 
         inputCart(); //change cartX, cartY
+        
+	printf("my(%s) Cart : %d %d\n",name,cartX,cartY);
+	printf("eme(%s) Cart : %d %d\n",emeName,emeX,emeY);
 
-	pthread_mutex_unlock(&a_lock);
+	pthread_mutex_lock(&a_lock);
 	if(!is_empty(&recv_queue)){
 	   packet eme_cart_data = seek(&recv_queue);
 	   dequeue(&recv_queue);
-	   emeX = eme_cart_data.x;
-	   emeY = eme_cart_data.y;
-	   strcpy(emeName,eme_cart_data.name);
+            
+	   pthread_mutex_lock(&b_lock);
+	   for(int i=0;i<emeCnt;i++)
+	   {  printf("eme(%d) cartName : %s\n",i,eme[i].name);
+	
+	      if(strcmp(eme[i].name,eme_cart_data.name)==0){
+		      eme[i].x = eme_cart_data.x;
+		      eme[i].y = eme_cart_data.y;
+		      //strcpy(eme[i].name,eme_cart_data.name);
+		      break;
+	      }
+           }
+	   pthread_mutex_unlock(&b_lock);
+	   
 
-	   printf("my(%s) Cart : %d %d\n",name,cartX,cartY);
-	   printf("eme(%s) Cart : %d %d\n",emeName,emeX,emeY);
 	}
         pthread_mutex_unlock(&a_lock); 
-	//아마 여러개 수신큐에서 read할 때 뮤텍스 때문에 못 읽으니까 계속 기다리느라 끊겨서 출력되는거 아닐까
-
-        update(emeX,emeY);	
+        update();	
 
 
        
@@ -113,21 +149,38 @@ int main(int argc, char *argv[])
 void inputCart()
 {
    if(linux_kbhit()){ 
-     int move = linux_getch();
-     switch(move){
-     case 'w':
+     char* move = linux_getch();
+     int moveCode = move[0] + move[1];
+     printf("move[0] : %d move[1] : %d\n",move[0],move[1]);
+     switch(moveCode){
+     case N:
 	     cartY-=1;
 	     break;
-     case 'd':
+     case E:
 	     cartX+=1;
 	     break;
-     case 's':
+     case S:
 	     cartY+=1;
 	     break;
-     case 'a':
+     case W:
 	     cartX-=1;
 	     break;
-     case 'q':
+     case NE:
+	     cartX+=1;
+	     cartY-=1;
+	     break;
+     case SE:
+	     cartY+=1;
+	     break;
+     case SW:
+	     cartX-=1;
+	     cartY+=1;
+	     break;
+     case NW:
+	     cartX-=1;
+	     cartY-=1;
+	     break;
+     case QUIT:
 	     printf("quit\n");
 	     close_keyboard();
 	     exit(1);
@@ -154,7 +207,7 @@ void inputCart()
    }
 }
 
-void update(int emeX, int emeY)
+void update()
 {
 		//print cart
 		for(int i=0;i<ROW;i++){
@@ -163,17 +216,27 @@ void update(int emeX, int emeY)
 				if(cartX==j && cartY==i)
 				{
 					printf("■ ");
-				}else if(emeX==j && emeY==i)
-				{
-					printf("● ");
-				}else if(itemX ==j && itemY==i){
+			        }else if(itemX ==j && itemY==i){
 					printf("☆ ");
+
+                                }
+				else{
+                                   int isTrack = 1;
+				   pthread_mutex_lock(&b_lock);
+				   for(int k=0;k<emeCnt;k++){
+				       if(eme[k].x==j&&eme[k].y==i&&strcmp(eme[k].name,"NONE")!=0){
+					      printf("● ");
+					      isTrack = 0;
+					   }
+				   }  
+                                   pthread_mutex_unlock(&b_lock);
+				   
+				   if(isTrack) printf("□ ");
 				}
-				else{				
-				   printf("□ ");
-				}
-				
-			}
+                               
+                               
+			  }
+			
 			printf("\n");
 		}
                  
@@ -224,7 +287,19 @@ void* recv_msg(void* arg)
 	   packet* recvPacket = (packet*)cutMsg;
 	   temp = *recvPacket; 
 	
-	   
+ pthread_mutex_lock(&b_lock);
+	   int newClnt = 1;
+	   for(int i=0;i<emeCnt;i++){
+	      if(strcmp(eme[i].name,temp.name)==0){
+		 newClnt = 0;
+		 break;
+	      }
+	    }
+	   if(newClnt){
+             sprintf(eme[emeCnt].name,"%s",temp.name);
+	     emeCnt++;
+	   }
+ pthread_mutex_unlock(&b_lock);
 
 	   pthread_mutex_lock(&a_lock);
            enqueue(&recv_queue,temp);
